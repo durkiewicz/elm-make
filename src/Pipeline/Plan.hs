@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Pipeline.Plan where
 
 import Control.Monad.Except (liftIO, throwError)
@@ -52,11 +53,11 @@ maybeLoadInterface artifactRoot (moduleID, (ProjectData location deps)) =
       let sourcePath = Path.toSource location
       fresh <- liftIO (isFresh sourcePath interfacePath)
 
-      maybeInterface <-
+      !maybeInterface <-
           case fresh && not (isMain moduleID) of
             False -> return Nothing
             True ->
-              do  interface <- File.readBinary interfacePath
+              do  !interface <- File.readBinary interfacePath
                   return (Just interface)
 
       return (moduleID, ProjectData (location, maybeInterface) deps)
