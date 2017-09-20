@@ -243,6 +243,21 @@ updateBlockedModules modul blockedModules potentiallyFreedModule =
 
 -- UPDATE - BUILD SOME MODULES
 
+getDependenciesOfModule dependencies modul =
+    case Map.lookup modul dependencies of
+      Just modules -> modules
+      Nothing -> []
+
+getTransitiveDependenciesOfModule dependencies modul =
+    aux dependencies Set.empty modul
+    where
+        aux dependencies seen modul =
+            let
+                immediateDependencies = Set.fromList $ getDependenciesOfModule dependencies modul
+                newDeps = Set.difference immediateDependencies seen
+            in
+                Set.foldl (aux dependencies) (Set.union seen newDeps) newDeps
+
 buildModule
     :: Env
     -> Map.Map CanonicalModule Module.Interface
@@ -256,16 +271,22 @@ buildModule env interfaces (modul, location) =
     isRoot = Set.member modul (modulesForGeneration env)
     isExposed = Set.member modul (exposedModules env)
 
+    dependenciesGraph = dependencies env
     deps =
-        map simplifyModuleName ((Map.!) (dependencies env) modul)
+        map simplifyModuleName $ getDependenciesOfModule dependenciesGraph modul
+
+    allDeps =
+        Set.map simplifyModuleName $ getTransitiveDependenciesOfModule dependenciesGraph modul
+
+    relevantInterfaces =
+        Map.filterWithKey (\ key _ -> Set.member key allDeps) ifaces
 
     context =
         Compiler.Context packageName isRoot isExposed deps
   in
   do  source <- readFile path
-
       let (localizer, warnings, rawResult) =
-            Compiler.compile context source ifaces
+            Compiler.compile context source relevantInterfaces
 
       threadId <- myThreadId
       let result =

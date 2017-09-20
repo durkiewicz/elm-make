@@ -2,6 +2,7 @@ module Utils.File where
 
 import Control.Monad.Except (liftIO, throwError)
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString as BS
 import qualified Data.Binary as Binary
 import qualified Data.Text as Text
 import qualified Data.Text.IO as TextIO
@@ -28,8 +29,8 @@ readBinary path =
       if exists then decode else throwError (BM.CorruptedArtifact path)
   where
     decode =
-      do  bits <- liftIO (LBS.readFile path)
-          case Binary.decodeOrFail bits of
+      do  bits <- liftIO (BS.readFile path)
+          case Binary.decodeOrFail (LBS.fromStrict bits) of
             Left _ ->
                 throwError (BM.CorruptedArtifact path)
 
